@@ -1,0 +1,37 @@
+services:
+  stack:
+    build:
+      context: ..
+      dockerfile: portock-ledger-stack/Dockerfile
+      additional_contexts:
+        portock: ../portock
+        ledger: ../Ledger
+        todo: ../todolist
+        carousel: ../carousel
+    restart: unless-stopped
+    volumes:
+      # Persistent app data — lives on the host, survives container restarts
+      - ~/.ssh:/root/.ssh:ro
+      - ../portock/.git:/app/portock/.git
+      - ../portock/backend/data:/app/portock/backend/data
+      - ../Ledger/resources:/app/ledger/resources
+      # Todo sync database (SQLite) — persists across container rebuilds
+      - ../todolist/data:/app/todo/data
+      # Carousel data (Google OAuth token/client secret, manifest cache)
+      - ../carousel/data:/app/carousel/data
+      # Cloudflare tunnel credentials (read-only)
+      - ~/.cloudflared:/etc/cloudflared:ro
+      # Combined tunnel config (overrides any existing file at that path)
+      - ./tunnel-config.yml:/app/tunnel-config.yml:ro
+    environment:
+      # Optional: base64-encoded service-account JSON for Ledger's Google Sheets.
+      # Falls back to resources/service-account.json (covered by the volume above).
+      - GOOGLE_SERVICE_ACCOUNT=${GOOGLE_SERVICE_ACCOUNT:-}
+      # Portock Google Sheets config
+      - PORTOCK_SHEET_ID=1pHEMQ2-0ob1-r1O7wLENhnJRxcJAOp47aKEvVofkVg8
+      - GOOGLE_SERVICE_ACCOUNT_FILE=/app/ledger/resources/service-account.json
+      # Carousel config
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CAROUSEL_DATA_DIR=/app/carousel/data
+      - CAROUSEL_DRIVE_ROOT=Carousel
+      - CAROUSEL_BASE_URL=https://carousel.rugita.com

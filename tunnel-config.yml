@@ -1,0 +1,13 @@
+tunnel: portock
+credentials-file: /etc/cloudflared/9d06b629-5f5b-4497-b781-b5e0164dab41.json
+
+ingress:
+  - hostname: portock.rugita.com
+    service: http://localhost:8000
+  - hostname: ledger.rugita.com
+    service: http://localhost:3001
+  - hostname: todo.rugita.com
+    service: http://localhost:8090
+  - hostname: carousel.rugita.com
+    service: http://localhost:8091
+  - service: http_status:404
