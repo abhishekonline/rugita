@@ -34,11 +34,27 @@ cloudflared tunnel delete ledger
 ## Run
 
 ```sh
-cd ~/personal/portock-ledger-stack
+cd ~/workspace/rugita
 docker compose up --build          # first run; subsequent: docker compose up -d
 ```
 
 To tail logs: `docker compose logs -f`
+
+### Portock + Ledger only (no Todo / Carousel)
+
+If `../todolist` and/or `../carousel` aren't checked out, use the minimal
+compose file instead — it builds the Dockerfile's `minimal` target, which
+never touches those two build contexts, and tunnels only
+`portock.rugita.com` / `ledger.rugita.com`:
+
+```sh
+cd ~/workspace/rugita
+docker compose -f docker-compose.minimal.yml up --build
+```
+
+`entrypoint.sh` detects at runtime whether `/app/todo` and `/app/carousel`
+exist in the image and skips starting those processes when they don't, so
+the same entrypoint script works for both images.
 
 ## Persistent data
 
@@ -46,9 +62,9 @@ These host directories are bind-mounted into the container — data survives res
 
 | Host path                              | Container path                |
 |----------------------------------------|-------------------------------|
-| `~/personal/portock/backend/data/`     | `/app/portock/backend/data/`  |
-| `~/personal/Ledger/resources/`         | `/app/ledger/resources/`      |
-| `~/personal/carousel/data/`            | `/app/carousel/data/`         |
+| `~/workspace/portock/backend/data/`     | `/app/portock/backend/data/`  |
+| `~/workspace/Ledger/resources/`         | `/app/ledger/resources/`      |
+| `~/workspace/carousel/data/`            | `/app/carousel/data/`         |
 
 `~/.cloudflared/` is mounted read-only for tunnel credentials. `tunnel-config.yml` is mounted at `/app/tunnel-config.yml`.
 

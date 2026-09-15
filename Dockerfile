@@ -22,14 +22,14 @@ WORKDIR /build
 COPY --from=ledger server/package.json server/package-lock.json ./
 RUN npm ci
 
-# ── 4. Final image ───────────────────────────────────────────────────────────
-FROM python:3.11-slim
-
-# Install Node 20, cloudflared, tini (PID-1 signal forwarding), and Carousel's
-# runtime deps (libraw for rawpy, exiftool for IPTC/XMP write-back)
+# ── 4. Base runtime — Portock + Ledger only ──────────────────────────────────
+# `minimal` and `full` both build on top of this. Only the `portock` and
+# `ledger` named build contexts are touched here, so this stage (and the
+# `minimal` target below) never requires `../todolist` or `../carousel` to
+# exist on the host.
+FROM python:3.11-slim AS base
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates gnupg tini git openssh-client \
-       libraw-dev exiftool \
+    && apt-get install -y --no-install-recommends curl ca-certificates gnupg tini git openssh-client cron tzdata \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && mkdir -p /usr/share/keyrings \
@@ -40,6 +40,11 @@ RUN apt-get update \
     && apt-get update \
     && apt-get install -y --no-install-recommends cloudflared \
     && rm -rf /var/lib/apt/lists/*
+
+# System timezone — baked in so cron's "14:30" trigger matches Abhishek's
+# actual local wall-clock time (with correct DST handling) rather than UTC.
+ENV TZ=America/Los_Angeles
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # ── Portock backend ──────────────────────────────────────────────────────────
 WORKDIR /app/portock/backend
@@ -59,23 +64,47 @@ COPY --from=ledger-server-deps /build/node_modules ./node_modules
 # Built Ledger client (server resolves ../../client/dist from src/__dirname)
 COPY --from=ledger-client /build/dist /app/ledger/client/dist
 
-# ── Todo (FastAPI backend serving static frontend + SQLite sync API) ─────────
+# ── Portock temp_swap cron ───────────────────────────────────────────────────
+# Daily sync of Portock's temp_swap sheet into STOCK/DIV — see
+# ~/workspace/portock/backend/app/scripts/process_temp_swap.py.
+COPY rugita/cron/portock-temp-swap /etc/cron.d/portock-temp-swap
+RUN chmod 0644 /etc/cron.d/portock-temp-swap
+COPY rugita/scripts/run-portock-temp-swap.sh /usr/local/bin/run-portock-temp-swap.sh
+RUN chmod +x /usr/local/bin/run-portock-temp-swap.sh
+
+# ── Entrypoint ───────────────────────────────────────────────────────────────
+COPY rugita/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+WORKDIR /app
+ENTRYPOINT ["tini", "--", "/usr/local/bin/entrypoint.sh"]
+
+# ── 5a. minimal target: Portock + Ledger only ────────────────────────────────
+# `docker build --target minimal` (or docker-compose.minimal.yml) stops here.
+FROM base AS minimal
+
+# ── 5b. full target: adds Todo + Carousel ────────────────────────────────────
+# Default target (last stage in the file) — matches the historical behavior
+# of this Dockerfile. Requires `../todolist` and `../carousel` build contexts.
+FROM base AS full
+
+# Todo (FastAPI backend serving static frontend + SQLite sync API)
 WORKDIR /app/todo
 COPY --from=todo server/requirements.txt ./server/requirements.txt
 RUN pip install --no-cache-dir -r server/requirements.txt
 COPY --from=todo server ./server
 COPY --from=todo web ./web
 
-# ── Carousel (FastAPI serving static frontend, ingest/tag/browse) ───────────
+# Carousel (FastAPI serving static frontend, ingest/tag/browse) — needs
+# libraw for rawpy, exiftool for IPTC/XMP write-back. Installed only in the
+# `full` target so `minimal` stays lean.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libraw-dev exiftool \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/carousel
 COPY --from=carousel pyproject.toml ./
 COPY --from=carousel app ./app
 COPY --from=carousel web ./web
 RUN pip install --no-cache-dir .
 
-# ── Entrypoint ───────────────────────────────────────────────────────────────
-COPY portock-ledger-stack/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
 WORKDIR /app
-ENTRYPOINT ["tini", "--", "/usr/local/bin/entrypoint.sh"]

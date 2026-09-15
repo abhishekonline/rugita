@@ -1,14 +1,21 @@
+# Portock + Ledger only — no Todo, no Carousel.
+#
+# Use this instead of docker-compose.yml when `../todolist` and/or
+# `../carousel` aren't checked out. It builds the Dockerfile's `minimal`
+# target, which only touches the `portock` and `ledger` build contexts, and
+# mounts a matching two-host tunnel config.
+#
+#   docker compose -f docker-compose.minimal.yml up --build
+#
 services:
   stack:
     build:
       context: ..
       dockerfile: rugita/Dockerfile
-      target: full
+      target: minimal
       additional_contexts:
         portock: ../portock
         ledger: ../Ledger
-        todo: ../todolist
-        carousel: ../carousel
     restart: unless-stopped
     volumes:
       # Persistent app data — lives on the host, survives container restarts
@@ -16,14 +23,11 @@ services:
       - ../portock/.git:/app/portock/.git
       - ../portock/backend/data:/app/portock/backend/data
       - ../Ledger/resources:/app/ledger/resources
-      # Todo sync database (SQLite) — persists across container rebuilds
-      - ../todolist/data:/app/todo/data
-      # Carousel data (Google OAuth token/client secret, manifest cache)
-      - ../carousel/data:/app/carousel/data
       # Cloudflare tunnel credentials (read-only)
       - ~/.cloudflared:/etc/cloudflared:ro
-      # Combined tunnel config (overrides any existing file at that path)
-      - ./tunnel-config.yml:/app/tunnel-config.yml:ro
+      # Two-host tunnel config (portock + ledger only) — overrides any
+      # existing file at that path
+      - ./tunnel-config.minimal.yml:/app/tunnel-config.yml:ro
     environment:
       # Optional: base64-encoded service-account JSON for Ledger's Google Sheets.
       # Falls back to resources/service-account.json (covered by the volume above).
@@ -31,8 +35,3 @@ services:
       # Portock Google Sheets config
       - PORTOCK_SHEET_ID=1pHEMQ2-0ob1-r1O7wLENhnJRxcJAOp47aKEvVofkVg8
       - GOOGLE_SERVICE_ACCOUNT_FILE=/app/ledger/resources/service-account.json
-      # Carousel config
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - CAROUSEL_DATA_DIR=/app/carousel/data
-      - CAROUSEL_DRIVE_ROOT=Carousel
-      - CAROUSEL_BASE_URL=https://carousel.rugita.com

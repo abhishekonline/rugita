@@ -1,0 +1,5 @@
+# Daily sync of Portock's temp_swap sheet into STOCK/DIV.
+# Runs at 14:30 container-local time (TZ baked into the image — see Dockerfile).
+# Job output is appended to the container's own stdout/stderr (PID 1's fds),
+# so it shows up in `docker compose logs -f` like every other service here.
+30 14 * * * root /usr/local/bin/run-portock-temp-swap.sh >>/proc/1/fd/1 2>>/proc/1/fd/2
