@@ -148,10 +148,12 @@ warn "cron only fires while the container is up and the Mac is awake — a misse
 # Ledger's scratchpad cron is node-cron inside the Ledger server (not system
 # cron); it announces itself in the logs when the server boots.
 step "Ledger scratchpad cron (in-process node-cron)"
-if dc logs "$SERVICE" 2>&1 | grep -q '\[scratchpad-cron\] Scheduled'; then
-  ok "scheduled: $(dc logs "$SERVICE" 2>&1 | grep '\[scratchpad-cron\] Scheduled' | tail -1 | sed 's/.*\[scratchpad-cron\] //')"
+# Captured once: piping `dc logs` into `grep -q` fails under pipefail when grep exits early.
+LOGS=$(dc logs "$SERVICE" 2>&1 || true)
+if grep -q '\[scratchpad-cron\] Scheduled' <<<"$LOGS"; then
+  ok "scheduled: $(grep '\[scratchpad-cron\] Scheduled' <<<"$LOGS" | tail -1 | sed 's/.*\[scratchpad-cron\] //')"
   echo "    runs at 00:45, 06:45, 09:45, 12:45, 15:45, 18:45, 21:45 (Pacific)"
-  last=$(dc logs "$SERVICE" 2>&1 | grep -E '\[scratchpad-cron\] (Processed|Failed)' | tail -1 || true)
+  last=$(grep -E '\[scratchpad-cron\] (Processed|Failed)' <<<"$LOGS" | tail -1 || true)
   if [ -n "$last" ]; then echo "    last run: ${last#*| }"; else echo "    no run yet since container start"; fi
 else
   fail "no '[scratchpad-cron] Scheduled' line in Ledger logs — the cron did not start"
