@@ -34,6 +34,10 @@ if [ -d /app/todo/server ]; then
   cd /app/todo/server
   uvicorn main:app --host 0.0.0.0 --port 8090 &
   PIDS+=($!)
+elif [ -f /app/todo/web/index.html ]; then
+  echo "[todo] serving static web app on :8090"
+  python -m http.server 8090 --directory /app/todo/web &
+  PIDS+=($!)
 else
   echo "[todo] not present in this image — skipping"
 fi

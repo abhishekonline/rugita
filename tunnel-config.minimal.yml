@@ -6,4 +6,6 @@ ingress:
     service: http://localhost:8000
   - hostname: ledger.rugita.com
     service: http://localhost:3001
+  - hostname: todo.rugita.com
+    service: http://localhost:8090
   - service: http_status:404

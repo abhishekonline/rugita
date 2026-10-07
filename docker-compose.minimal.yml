@@ -1,9 +1,11 @@
-# Portock + Ledger only — no Todo, no Carousel.
+# Portock + Ledger (+ the static Todo web app) — no Carousel, no FastAPI Todo.
 #
 # Use this instead of docker-compose.yml when `../todolist` and/or
 # `../carousel` aren't checked out. It builds the Dockerfile's `minimal`
 # target, which only touches the `portock` and `ledger` build contexts, and
-# mounts a matching two-host tunnel config.
+# mounts a matching tunnel config. The Todo web app is the static site in
+# ../chrome/web, bind-mounted read-only and served on :8090 (no rebuild needed
+# for updates; just `git pull` in ../chrome).
 #
 #   docker compose -f docker-compose.minimal.yml up --build
 #
@@ -23,9 +25,11 @@ services:
       - ../portock/.git:/app/portock/.git
       - ../portock/backend/data:/app/portock/backend/data
       - ../Ledger/resources:/app/ledger/resources
+      # Todo web app (static files from the chrome extension repo)
+      - ../chrome/web:/app/todo/web:ro
       # Cloudflare tunnel credentials (read-only)
       - ~/.cloudflared:/etc/cloudflared:ro
-      # Two-host tunnel config (portock + ledger only) — overrides any
+      # Tunnel config (portock + ledger + todo) — overrides any
       # existing file at that path
       - ./tunnel-config.minimal.yml:/app/tunnel-config.yml:ro
     environment:

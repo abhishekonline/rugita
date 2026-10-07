@@ -9,7 +9,7 @@ Single Docker container running Portock, Ledger, Todo, and Carousel, tunneled to
 | Todo     | 8090          | https://todo.rugita.com      |
 | Carousel | 8091          | https://carousel.rugita.com  |
 
-Todo is a static site (`../todolist/web/`) served by `python -m http.server`.
+Todo is a static site served by `python -m http.server`. In the full stack it comes from `../todolist/web/`; in the minimal stack it is bind-mounted read-only from `../chrome/web`.
 
 ## Prerequisites
 
@@ -40,12 +40,14 @@ docker compose up --build          # first run; subsequent: docker compose up -d
 
 To tail logs: `docker compose logs -f`
 
-### Portock + Ledger only (no Todo / Carousel)
+### Portock + Ledger + static Todo (no Carousel)
 
 If `../todolist` and/or `../carousel` aren't checked out, use the minimal
 compose file instead — it builds the Dockerfile's `minimal` target, which
-never touches those two build contexts, and tunnels only
-`portock.rugita.com` / `ledger.rugita.com`:
+never touches those two build contexts, and tunnels
+`portock.rugita.com`, `ledger.rugita.com` and `todo.rugita.com`. Todo is the
+static site from `../chrome/web` (bind-mounted at `/app/todo/web`, served on
+:8090), so updating it is just `git pull` in `../chrome` with no rebuild:
 
 ```sh
 cd ~/workspace/rugita
